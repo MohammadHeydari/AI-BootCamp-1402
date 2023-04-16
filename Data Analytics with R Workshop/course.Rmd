@@ -1,0 +1,162 @@
+---
+title: "course_dataanalysis"
+output: html_document
+date: '2023-04-15'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(ggplot2)
+```
+
+
+```{r}
+orders = fread()
+```
+
+#EDA
+
+```{r}
+length(unique(orders$ID_Order))
+
+dim(unique(orders[,.(ID_Customer)]))
+length(unique(orders$ID_Customer))
+
+length(unique(orders$ID_Item))
+
+max(orders$DateTime_CartFinalize)
+```
+
+```{r}
+View(orders[, .(count=.N), by=.(city_name_fa)])
+View(orders[, .(count=.N), keyby=.(city_name_fa)])
+```
+
+```{r}
+orders= orders[, order_day:=as.Date(DateTime_CartFinalize)]
+daily_orders = orders[, 
+                      .(order_count=length(unique(ID_Order))),
+                      by=.(order_day)
+                      ]
+
+daily_orders = orders[, 
+                      .(daily_income=sum(Amount_Gross_Order)),
+                      by=.(order_day)
+                      ]
+ggplot(data =daily_orders )+
+  geom_line(aes(x=order_day, y=daily_income/1e7))
+```
+
+
+```{r}
+daily_orders =daily_orders[ order(order_day), movingaverag_7:=frollmean(order_count,7)]
+daily_orders_after2016 = daily_orders[order_day>="2016-01-01",]
+
+ggplot(data =daily_orders_after2016 )+
+  geom_line(aes(x=order_day, y=movingaverag_7))+
+  scale_x_continuous(breaks = seq(min(daily_orders_after2016$order_day),max(daily_orders_after2016$order_day),30))+
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+
+```{r}
+daily_orders =daily_orders[ order(order_day), cumsum_orders:=cumsum(order_count)]
+
+ggplot(data =daily_orders )+
+  geom_line(aes(x=order_day, y=cumsum_orders))
+```
+```{r}
+daily_orders = daily_orders[,month:=month(order_day)]
+
+daily_orders_filtered = daily_orders[month%in%c(3,4),]
+```
+
+
+
+```{r}
+date= fread("../data/date_jal.csv")
+orders = merge(date, orders, by.x ="date", by.y = "order_day" )
+
+monthly_orders = orders[jal_year>1392 ,.(income = sum(Amount_Gross_Order)) ,
+                         by=.(jal_month, jal_year)]
+
+ggplot(monthly_orders)+
+  geom_line(aes(x=jal_month, y=income, color=as.character(jal_year)))+
+  geom_point(aes(x=jal_month, y=income, color=as.character(jal_year)), size=0.7)+
+  scale_x_continuous(breaks = unique(monthly_orders$jal_month))
+
+
+ggplot(monthly_orders)+
+  geom_bar(aes(x=jal_month, y=income), stat = "identity")+
+  facet_wrap(vars(jal_year),scales = "free")
+```
+
+```{r}
+lifetime = orders[, .(first_order=min(DateTime_CartFinalize), 
+                      last_order = max(DateTime_CartFinalize)),
+                  by=.(ID_Customer)
+                  ]
+
+lifetime = lifetime[, lifetime:=round(as.integer(difftime(last_order,first_order, units = "days" )))]
+dim(lifetime[lifetime==0])
+dim(lifetime)
+ggplot(lifetime[lifetime>0])+
+  geom_histogram(aes(x=lifetime), bins = 80)
+```
+
+```{r}
+customer_behav= orders[,.(purchase_amout = sum(Amount_Gross_Order/10),
+                          purchase_count = length(unique(ID_Order)),
+                          distinct_item = length(unique(ID_Item))),
+                       by=.(ID_Customer)
+                       ]
+
+ggplot(customer_behav[(purchase_amout<5e7)&(purchase_count<50),])+
+  geom_point(aes(x=purchase_amout, y=purchase_count), size=0.4)
+```
+
+```{r}
+ orders= orders[, week_day:=wday(DateTime_CartFinalize)]
+orders= orders[,week_day_jal:=(week_day+1)%%7]
+
+weekday_orders = orders[,.(order_count = .N),by=.(week_day_jal, jal_year)]
+weekday_orders = weekday_orders[, total_count_peryear:=sum(order_count), by=.(jal_year)]
+weekday_orders = weekday_orders[,ratio:=(order_count/total_count_peryear)*100]
+
+ggplot(weekday_orders)+
+  geom_bar(aes(x=week_day_jal, y=ratio), stat = "identity")+
+  facet_wrap(vars(jal_year), scales = "free")
+```
+```{r}
+dim(orders[Amount_Gross_Order<1000])
+valid_price = orders[Amount_Gross_Order>=1000]
+
+price_summary= valid_price[, .(max_price =max(Amount_Gross_Order) ,
+                               mean_price=round(mean(Amount_Gross_Order), 3),
+                               median_price=median(Amount_Gross_Order,na.rm = T)),
+                           by=.(ID_Item, jal_year)]
+
+
+
+price_summary = price_summary[,freq_item:=length(unique(jal_year)), by=.(ID_Item)]
+ggplot(price_summary[(freq_item>4)&(jal_year>1392)])+
+  geom_density(aes(x=median_price, fill=as.character(jal_year), 
+                   color=as.character(jal_year) ), alpha=0.5)
+```
+```{r}
+ex= price_summary[ID_Item==28142]
+model = lm(ex, formula =median_price~jal_year)
+model$coefficients
+ggplot(ex, aes(x=jal_year, y=median_price))+
+  geom_point()+
+  stat_smooth(method = "lm",
+              formula = y ~ x,
+              geom = "smooth")
+```
+```{r}
+valid_item = price_summary[(freq_item>4)]
+
+valid_item = valid_item
+```
+

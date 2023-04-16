@@ -1,0 +1,479 @@
+---
+title: "\\fontsize{25}{35} \\textbf{ تحلیل و تصویرسازی داده به کمک }"
+subtitle: "\\textbf{R}"
+output:
+  pdf_document:
+    latex_engine: xelatex #xelatex
+    number_sections: true
+    includes:
+      in_header: "style_files/in_header.tex"
+      before_body: "style_files/before_body.tex"
+      after_body: "style_files/after_body.tex"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(lubridate)
+
+```
+
+# معرفی کتابخانه datatable
+
+کتابخانه datatable 
+یک ورژن بهبود یافته از کتابخانه dataframe 
+است. 
+
+این کتابخانه معماری بهینه ایی دارد و از نظر پردازش سرعت بسیار بالایی دارد. 
+امکان انجام خلاصه سازیهای پیچیده با کد کوتاه از جمله مزایای این کتابخانه است 
+لذا اگر مشکل لود کردن داده در حافظه نباشد انتخاب دیتا تیبل بهترین گزینه است. 
+
+در لینک زیر می توانیم مقایسه این کتابخانه را با بقیه کتابخانه های معروف بینیم 
+ https://h2oai.github.io/db-benchmark/
+ 
+* ایراد این کتابخانه این است که نحوه کد زدن آن خیلی عمومی نیست. به عنوان مثال کد زدن بر کتابخانه dyplr بسیار شبیه پایتون است، هر چند این کتابخانه هرگز به اندازه datatable بهینه نیست 
+
+
+## نصب و فراخوانی 
+
+```{r, eval=TRUE}
+#install.packages("data.table")                     
+library("data.table")
+```
+
+
+
+## ساخت datatable
+
+* هر ستون از datatable یک لیست اسم دار است. 
+
+برای ساخت یک datatable کافی است اسم ستون و نوع آن را مشخص کنیم 
+
+```{r, eval=TRUE}
+emptyDT = data.table("c1"=integer(), 
+                     "c2"=character())
+# data_infomation 
+str(emptyDT)
+
+```
+
+
+* با روش زیر می توانیم به داده ساخت شده فوق سطر اضافه کنیم 
+
+```{r, eval=TRUE}
+newrow = list(c1=c(1,2), c2=c("one", "two"))
+emptyDT = rbind(emptyDT, newrow)
+emptyDT
+```
+
+
+* یک مثال دیگر 
+
+```{r, eval=TRUE}
+DT = data.table(Fruit = rep(c("banana", "apple", "orange"), 3:1),
+                 Year  = c(2008, 2009, 2010, 2009, 2010, 2010),
+                 Count = 1:6)
+DT
+```
+
+
+
+## خواندن داده از روی هارد
+
+* برای خواندن داده از دستور fread استفاده می کنیم که بسیار سریع و بهینه است و در بسیاری از موارد مخصوصا وقتی ستون ها مقادیر عجیبی داشته باشند یا کارکترهای جداسازی آنها متفاوت باشد  بسیار بهتر از دستورهای پایتون عمل می کند 
+
+[Public Digikala data](https://bigdata-ir.com/دانلود-مجموعه-داده-و-دیتاست-های-دیجی-کا/)
+
+```{r}
+orders = fread("../data/digikala_dataset/orders.csv")
+#View(orders)
+```
+
+
+* دستور نوشتن داده روی دیسک هم fwrite است 
+
+نمایش مشخصات داده 
+```{r}
+str(orders)
+```
+
+*نمایش بعد داده (‌تعداد سطرها و ستونها)
+```{r}
+dim(orders)
+```
+
+
+### ساختار datatable 
+ساختار datatable ساختار داده tidy را نگه داری می کند 
+به این معنی که هر سطر یک مشاهده است و ستونها فیچرهای مربوط به آن مشاهده هستند 
+
+$DT[i,j,by]$ :
+
+* جایگاه $i$ برای انجام عملیات سطری نظیر فیلتر کردن روی سطرها یا مرتب سازی سطرها است 
+* جایگاه $j$ برای انتخاب ستونها و انجام عملیات ستونی است 
+* و آخرین جایگاه نیز برای انجام عملیات خلاصه سازی روی داده است 
+
+
+
+## نحوه دسترسی به ستون، سطر و مقادیر datatable 
+
+* انتخاب ستونها
+
+```{r, eval=FALSE}
+
+orders$ID_Order
+orders[,.(ID_Order,ID_Item)]
+orders$ID_Customer
+# Choose one or more columns 
+orders[,.(ID_Order)]
+# Choose column with new name 
+orders[,.(idorder_new = ID_Order)]
+
+
+```
+
+* انتخاب سطرها 
+
+```{r, eval=FALSE}
+orders[1:3,.(ID_Item)]
+```
+
+* دسترسی به مولفه ها 
+
+```{r, eval=FALSE}
+orders[1,ID_Item]
+```
+
+
+## کتابخانه ggplot 
+```{r}
+library(ggplot2)
+```
+
+یکی دیگر از کتابخانه‌های قدرتمند R برای رسم شکل 
+در حقیقت این کتابخانه دستور زبانی برای تصویر سازی در R فراهم می کند 
+
+* انتخاب داده مناسب برای ورودی این کتابخانه مهم است 
+به عنوان مثال : 
+
+داده بد برای رسم شکل : 
+
+|person_id|2013|2014|2015|
+|:---:|:---:|:---:|:---:|
+|1|20000|30000|40000|
+
+داده مناسب برای رسم شکل 
+
+|person_id|year|income|
+|:---:|:---:|:--:|
+|1|2013|20000|
+|1|2014|30000|
+|1|2015|40000|
+
+این کتابخانه یک تصویر را در لایه های مختلف می‌سازد 
+تمپلت کلی رسم شکل به کمک ggplot به صورت زیر است 
+
+$$ggplot(data = <DATA>, mapping = aes(<MAPPINGS>)) +  <GEOM-FUNCTION>()$$
+
+
+# تحلیل اکتشافی داده EDA به کمک datatable و GGplto 
+
+* گام اول یک تحلیل اکتشافی شناخت داده است 
+
+
+```{r, eval=FALSE}
+View(orders)
+```
+
+* با داده از چه ابعادی سرو کار داریم 
+
+```{r}
+dim(orders)
+```
+
+* تعداد آیتم‌های متفاوت، تعداد مشتریان متفاوت و تعداد سفارش های متفاوت در داده
+```{r}
+length(unique(orders$ID_Order))
+```
+
+```{r}
+length(unique(orders$ID_Customer))
+```
+```{r}
+length(unique(orders$ID_Item))
+```
+
+* هر order می تواند شامل ایتمهای متفاوتی باشد
+```{r}
+orders[ID_Order==4042312,]
+```
+
+
+* برای چه مدت زمانی داده داریم 
+
+```{r}
+min(orders$DateTime_CartFinalize)
+```
+```{r}
+max(orders$DateTime_CartFinalize)
+```
+
+
+
+
+* در بخش شناخت داده یکی از عوامل مهم پاکسازی داده است که به هیچ فیلدی از داده نباید اعتماد کرد 
+
+
+* گام بعدی طرح سوالات مهم و پاسخ به آنها از به کمک خلاصه‌سازیهای مناسب و رسم شکلهای گویا است. 
+باید سعی کنیم اطلاعات پنهانی که کافرما از داده خبر نداره رو استخراج کنیم و با شیوه مناسب ارائه دهیم
+
+
+* خوب است اول با طرح سوالات کلان از نظر وضعیت کلی بیزنس شروع کنید 
+
+مثلا تعداد خریدها و در آمد در هر روز 
+
+```{r}
+orders = orders[, purchase_day:=as.Date(DateTime_CartFinalize)]
+
+day = orders[,.(count=length(unique(ID_Order))), by=.(purchase_day)]
+ggplot(day)+
+  geom_line(aes(x=purchase_day, y=count))
+
+
+```
+* هموارتر کردن نمودار به کمک میانگین گیری
+
+```{r}
+day = day[order(purchase_day),rollmean:=frollmean(count, 7)]
+ggplot(day)+
+  geom_line(aes(x=purchase_day, y=rollmean))
+```
+
+
+```{r}
+income = orders[,.(income=sum(Amount_Gross_Order)), by=.(purchase_day)]
+ggplot(income)+
+  geom_line(aes(x=purchase_day, y=income/1e7))
+```
+
+
+* تعداد خریدها در هر ماه 
+
+```{r}
+date= fread("../data/date_jal.csv")
+# join two datatable 
+orders = merge(orders,date, by.x = "purchase_day", by.y ="date"  )
+```
+
+
+```{r}
+month = orders[,.(count=length(unique(ID_Order))), by=.(jal_month)]
+ggplot(month)+
+  geom_bar(aes(x=jal_month, y=count), stat = "identity")
+```
+
+
+* داده را از منظر رفتار مشتری‌ها بررسی کنیم 
+
+
+* هر مشتری در چه بازه ایی در داده حضور دارد 
+
+```{r}
+
+lifetime = orders[,.(first_order = min(DateTime_CartFinalize),
+                     last_order = max(DateTime_CartFinalize)),
+                  by=.(ID_Customer)]
+
+lifetime = orders[order(DateTime_CartFinalize),
+                  .(first_order = min(DateTime_CartFinalize),
+                     last_order = max(DateTime_CartFinalize)),
+                  by=.(ID_Customer)]
+# add new column 
+lifetime = lifetime[, lifetime:=as.integer(difftime(last_order,first_order, 
+                                                    units = "days" ))]
+#lifetime[,.N, by=.(lifetime)]
+ggplot(lifetime[lifetime>0])+
+  geom_histogram(aes(x=lifetime), bins=40)
+```
+
+
+* هر مشتری چند بار خرید انجام می دهد(چند سفارش انجام می دهد) 
+
+```{r}
+data = orders[, .(customer_orders=length(unique(ID_Order))), 
+       by=.(ID_Customer)]
+#dim(data[customer_orders==1])
+#dim(data)
+ggplot(data[(customer_orders<30)&(customer_orders>1)])+
+  geom_histogram(aes(x=customer_orders), bins = 20)
+```
+
+
+* در سبد کالای مشتریان چند آیتم وجود دارد 
+* به این سوال پاسخ بدهیم که چی درصدی از مشتریان سبد خرید متنوعی دارند 
+
+```{r}
+
+item_count = orders[,.( 
+                       distinct_item = length(unique(ID_Item))),by=.(ID_Customer)]
+
+ggplot(item_count[distinct_item>10])+
+  geom_histogram(aes(x=distinct_item), bins=40)
+
+```
+
+* مشتریان معمولا چه روزی از هفته خرید می‌کنند 
+
+```{r}
+orders = orders[, day_ofweek:=wday(DateTime_CartFinalize)]
+# week start from Sunday=1, Saturday=7 
+orders = orders[, day_ofweek_persian:=(day_ofweek+1)%%7]
+# quality check 
+#View(unique(orders[,.(day_ofweek, day_ofweek_persian)]))
+
+purchase_day = orders[,.(order_count=.N),by=.(day_ofweek_persian)]
+# ratio has better insight 
+total_orders = length(unique(orders$ID_Order))
+purchase_day = purchase_day[, ratio_ordes:=order_count/total_orders]
+ggplot(purchase_day)+
+  geom_bar(aes(x =day_ofweek_persian, y=ratio_ordes ), stat = "identity")+
+  scale_x_continuous(breaks = unique(purchase_day$day_ofweek_persian))
+```
+* آیا پترن خرید مشتریان در روزهای هفته طی سالهای مختلف فرق داشته 
+
+
+```{r}
+orders = orders[, purchase_year:=year(DateTime_CartFinalize)]
+
+purchase_day = orders[,.(order_count=.N),by=.(purchase_year,day_ofweek_persian)]
+# ratio has better insight 
+purchase_day = purchase_day[, total_orders_peryear:=sum(order_count), by=.(purchase_year)]
+purchase_day = purchase_day[, ratio_ordes:=order_count/total_orders]
+ggplot(purchase_day)+
+  geom_bar(aes(x =day_ofweek_persian, y=ratio_ordes ,
+               fill= as.character(purchase_year)), stat = "identity", 
+           position = position_stack())+
+  scale_x_continuous(breaks = unique(purchase_day$day_ofweek_persian))
+
+
+
+
+```
+
+* رسم شکل با روش دیگر با کمک وجوه مختلف
+
+```{r}
+ggplot(purchase_day)+
+  geom_bar(aes(x =day_ofweek_persian, y=ratio_ordes ), stat = "identity"
+          )+
+  scale_x_continuous(breaks = unique(purchase_day$day_ofweek_persian))+
+  facet_wrap(vars(purchase_year), scales = "free")
+```
+
+* محبوبترین کالای دیچی کالا چه بوده است 
+
+
+
+```{r}
+#View(orders[,.(customer_count =  length(unique(ID_Customer))),by=.(ID_Item)])
+```
+
+
+* وضعیت قیمتها در داده چگونه است. 
+بررسی اینکه آیا قیمتهای خیلی کم یا خیلی زیادی در داده ثبت شده است یا نه 
+
+```{r}
+min(orders$Amount_Gross_Order)
+```
+```{r}
+# Row filtering of data table 
+lowprices = orders[Amount_Gross_Order < 10,  ]
+dim(lowprices)
+```
+
+* پراکندگی قیمتها در داده چگونه است 
+
+* برای اینکه شکل از نظر بصری بهتر باشد قیمت های کم یا زیاد را فیلتر می کنیم 
+* به عنوان یک لایه میانگین قیمت ها را به صورت خطی افقی اضافه می کنیم 
+
+```{r}
+
+
+ggplot(orders[(Amount_Gross_Order>0)&(Amount_Gross_Order<1e7),])+
+  geom_histogram(aes(x=Amount_Gross_Order), bins = 40)+
+  geom_vline(xintercept = mean(orders[(Amount_Gross_Order>0)&
+                                        (Amount_Gross_Order<1e7)
+                                      ]$Amount_Gross_Order))
+
+```
+
+* تغییر وضعیت قیمتها در سالهای مختلف چطور بوده 
+
+
+```{r}
+
+price_summary = orders[Amount_Gross_Order>10000,
+                   .(max_price=max(Amount_Gross_Order), 
+                     mean_price=mean(Amount_Gross_Order),
+                     median_price = median(Amount_Gross_Order, na.rm = T)),
+                   by=.(ID_Item, purchase_year)]
+#View(price_summary[ID_Item==14326])
+
+# To get better insight choose items appears  on more than two years 
+price_summary = price_summary[, item_freq:=length(unique(purchase_year)),
+                              by=.(ID_Item)]
+
+#dim(price_summary[item_freq==6])
+#dim(price_summary[item_freq>4])
+
+```
+
+* چگالی قیمت در آیتم های مختلف در سالهای مختلف رو ببینیم 
+
+```{r}
+highfreq_item = price_summary[item_freq>4][order(ID_Item)][order(purchase_year)]
+ggplot(highfreq_item)+
+  geom_density(aes(x=median_price, fill=as.character(purchase_year),
+               color=as.character(purchase_year)), alpha=0.4)
+```
+* بدست آوردن تغییرات قیمت با ایده های پیچیده تر 
+
+
+```{r}
+ex = highfreq_item[ID_Item==28142]
+ggplot(ex, aes(x=purchase_year, y=median_price))+
+  geom_point()+
+  stat_smooth(method = "lm",
+              formula = y ~ x,
+              geom = "smooth")
+```
+```{r}
+ex = highfreq_item[ID_Item==28142]
+lm(ex, formula = median_price~purchase_year)$coefficients["purchase_year"]
+lm(ex, formula = median_price~purchase_year)
+```
+
+* شیب خط برازش شده روی میانه قیمت هر آیتم در سالهای مختلف را به داده اضافه می کنیم 
+```{r}
+highfreq_item =highfreq_item[,
+                        slope:=lm(formula = median_price~purchase_year)$coefficients["purchase_year"],
+                      by=.(ID_Item)]
+
+ggplot(highfreq_item)+
+  geom_histogram(aes(x=slope))
+```
+
+* با بررسی بیشتر متوجه می شود قیمت های سال ۲۰۱۸ عامل اصلی افزایش شیب قیمت است. 
+
+```{r}
+#View(highfreq_item[slope>2e5])
+```
+* تغییرات قیمت کالاها را قبل از سال ۲۰۱۸ بدست آوریم 
+
+```{r}
+highfreq_item_before2018 = highfreq_item[purchase_year<2018,
+                                        slope:=lm(formula = median_price~purchase_year)$coefficients["purchase_year"],
+                      by=.(ID_Item)]
+
+ggplot(highfreq_item_before2018)+
+  geom_histogram(aes(x=slope))
+```
