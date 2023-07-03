@@ -1,0 +1,4 @@
+﻿Country	Capital	Area
+Iran	Tehran	1648000
+Turkey	Ankara	783562
+Italy	Rome	301230
